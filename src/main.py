@@ -61,16 +61,22 @@ def step(bot: SmartBotType, dt):
         goal_ang = atan2(marker.x, marker.y) - pi / 2
         # print(goal_ang)
         dist_to_goal = math.hypot(marker.x, marker.y)
-
+        marker_reached = False
     v = math.sqrt(sensors.odom.vx**2 + sensors.odom.vy**2)
-
-    yaw_control = yaw_PID.step(goal_ang, sensors.odom.wz, dt)
-    pos_control = pos_PID.step(dist_to_goal, v, dt)
-    cmd.angular_vel = -yaw_control
-    # cmd.angular_vel = 1
-    if abs(goal_ang) < 0.05:
-        cmd.linear_vel = pos_control
-    # cmd.linear_vel = 0
+    if not (marker_reached):
+        yaw_control = yaw_PID.step(goal_ang, sensors.odom.wz, dt)
+        pos_control = pos_PID.step(dist_to_goal, v, dt)
+        cmd.angular_vel = -yaw_control
+        # cmd.angular_vel = 1
+        if abs(goal_ang) < 0.05:
+            cmd.linear_vel = pos_control
+            if abs(dist_to_goal) < 0.05:
+                marker_reached = True
+                print("Marker reached!\n")
+        # cmd.linear_vel = 0
+    else:
+        cmd.linear_vel = 0
+        cmd.angular_vel = 0
     bot.write(cmd)
 
     time.sleep(0.020)  # REMOVE. Simulate a non-trivial loop by sleeping 20ms.
