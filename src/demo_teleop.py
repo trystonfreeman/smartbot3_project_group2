@@ -28,15 +28,28 @@ def step(bot: SmartBotType):
     """This is the main control loop for the robot. Code here should run in <50ms."""
     sensors = bot.read()
 
-    if sensors.scan is not None:
-        # Look at the +X lidar range.
-        range_forward = get_range_forward(sensors.scan)
-        logger.info(f"{range_forward=}", rate=1)
+    # Print out sensor data.
+    logger.info(sensors.odom, rate=3)
+    logger.info(sensors.odom.x, rate=3)
+    logger.info(sensors.odom.y, rate=3)
+    logger.info(sensors.odom.yaw, rate=3)
 
-    # Look at *every* valid attribute (i.e. is actually set) in the SensorData object.
-    for name, data in vars(sensors).items():
-        if data is not None:
-            logger.info(f"{name}: {data}\n", rate=5)
+    # logger.info(sensors.imu, rate=3)
+    # logger.info(sensors.aruco_poses, rate=3)
+    # logger.info(sensors.manipulator_curr_preset, rate=3)
+    # logger.info(sensors.gripper_curr_state, rate=3)
+    # logger.info(sensors.joints, rate=3)
+
+
+    # Look at the +X lidar range.
+    if sensors.scan is not None:
+        range_forward = get_range_forward(sensors.scan)
+        logger.info(f"{range_forward=}", rate=5)
+
+    # Print *every* populated sensor data attribute.
+    # for name, data in vars(sensors).items():
+    #     if data is not None:
+    #         logger.info(f"{name}: {data}\n", rate=5)
 
     # Drive the robot.
     cmd = get_key_command(sensors)
@@ -54,8 +67,8 @@ if __name__ == "__main__":
     # bot = SmartBot(mode="real", drawing=True, smartbot_num=0)
     # bot.init(host="localhost", port=9090, yaml_path="default_conf.yml")
 
-    # bot = SmartBot(mode="real", drawing=True, smartbot_num=2)
-    # bot.init(host="192.168.33.2", port=9090, yaml_path="default_conf.yml")
+    # bot = SmartBot(mode="real", drawing=True, smartbot_num=4)
+    # bot.init(host="192.168.33.4", port=9090, yaml_path="default_conf.yml")
 
     bot = SmartBot(mode="sim", drawing=True, smartbot_num=3)
     bot.init(drawing=True, smartbot_num=3)

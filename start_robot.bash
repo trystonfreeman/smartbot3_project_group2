@@ -66,8 +66,5 @@ ssh -tt "smartbot@${IP}" "
             exit 1
         fi
     fi
-
-    echo 'Attaching to container: \$CONTAINER'
-    exec docker exec -it \$CONTAINER bash
 "
 

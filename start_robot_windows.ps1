@@ -48,7 +48,4 @@ ssh -t -t "smartbot@$IP" @"
             exit 1
         fi
     fi
-
-    echo 'Attaching to container: $Container'
-    exec docker exec -it $Container bash
 "@
