@@ -105,4 +105,5 @@
     "workbench.editor.pinnedTabsOnSeparateRow": true,
     "workbench.editor.wrapTabs": false,
     "explorer.autoReveal": false,
+    "python.analysis.typeCheckingMode": "off",
 }
