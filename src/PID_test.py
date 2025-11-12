@@ -1,4 +1,3 @@
-# demo_2dsim.py
 import logging
 import time
 import math
@@ -7,9 +6,17 @@ from smartbot_irl.robot import SmartBotType
 from smartbot_irl.utils import SmartLogger
 from smartbot_irl import Command, SensorData, SmartBot
 from smartbot_irl.data import LaserScan
-from teleop import get_key_command
+
+from PID import PID
+# from teleop import get_key_command
 
 logger = SmartLogger(level=logging.INFO)  # Print statements, but better!
+
+KP = 1
+KI = 0
+KD = 1
+des_yaw = pi / 2
+des_yaw_rate = 0
 
 
 def get_range_forward(scan: LaserScan) -> float:
@@ -34,13 +41,11 @@ def step(bot: SmartBotType):
         logger.info(f"{range_forward=}", rate=1)
 
     # Look at *every* valid attribute (i.e. is actually set) in the SensorData object.
-    for name, data in vars(sensors).items():
-        if data is not None:
-            logger.info(f"{name}: {data}\n", rate=5)
+    # for name, data in vars(sensors).items():
+    # if data is not None:
+    # logger.info(f"{name}: {data}\n", rate=5)
 
-    # Drive the robot.
-    cmd = get_key_command(sensors)
-    bot.write(cmd)
+    # bot.write(cmd)
 
     time.sleep(0.020)  # REMOVE. Simulate a non-trivial loop by sleeping 20ms.
 
