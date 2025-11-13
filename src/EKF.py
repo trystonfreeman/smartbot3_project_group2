@@ -1,5 +1,12 @@
 # Extended Kalman filter class
 
+# f is nonlinear state trabnsition function
+# h is nonlinear measurement function
+# Fx is jacobian of f
+# Hx is jacobian of h
+# Fk is jacobian of f at current state
+# Hk is jacobian of h at current predicted state
+
 # import gives us matrix operations
 import numpy as np
 
