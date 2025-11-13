@@ -39,8 +39,8 @@ class KF:
         self.x = self.x + K @ temp
 
         # P=(I-K*C)*P
-        I = np.eye(len(self.P))  # gives identity matrix the same size as P
-        self.P = (I - K @ self.C) @ self.P
+        IdenMatrix = np.eye(len(self.P))  # gives identity matrix the same size as P
+        self.P = (IdenMatrix - K @ self.C) @ self.P
 
     def step(self, y, u):
         self.predict(u)
