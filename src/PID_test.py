@@ -67,10 +67,12 @@ def step(bot: SmartBotType, dt):
     yaw_control = yaw_PID.step(goal_ang, sensors.odom.wz, dt)
     pos_control = pos_PID.step(dist_to_goal, v, dt)
     cmd.angular_vel = -yaw_control
-    # cmd.angular_vel = 1
+
+    cmd.angular_vel = 0
+
     if abs(goal_ang) < 0.05:
         cmd.linear_vel = pos_control
-    # cmd.linear_vel = 0
+    cmd.linear_vel = 0
     bot.write(cmd)
 
     time.sleep(0.020)  # REMOVE. Simulate a non-trivial loop by sleeping 20ms.
