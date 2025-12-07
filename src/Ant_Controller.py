@@ -23,9 +23,10 @@ def COMPUTE_GOAL_FROM_MARKERS(sensors) -> tuple[float, float | None, bool]:
         return (0.0, None, False)
 
 
-def Obstacle_Avoidance(scan, avoid_thresh):
+def Obstacle_Avoidance(scan, avoid_thresh) -> tuple[float, float, float]:
     repulse_direction = 0.0
-    pressure = 0.0
+    side_pressure = 0.0
+    forward_pressure = 0.0
 
     for i, r in enumerate(scan.ranges):
         if not r or math.isnan(r) or math.isinf(r):
@@ -34,30 +35,44 @@ def Obstacle_Avoidance(scan, avoid_thresh):
             # angle relative to robot heading
             ang = scan.angle_min + i * scan.angle_increment
             w = 1.0 / max(r, 0.05)  # closer obstacles weigh stronger
+
+            # Calculate Pressure from the side.
             repulse_direction -= math.sin(ang) * w  # steer away from obstacle side
-            pressure += w
+            side_pressure += w
 
-    if pressure > 0:
-        repulse_direction = repulse_direction / pressure
-    return (repulse_direction, pressure)
+            # Calculate Forward Pressure.
+            c = math.cos(ang)
+            if c > 0.0:
+                forward_pressure += c * w
+
+        if side_pressure > 0:
+            repulse_direction = repulse_direction / side_pressure
+
+    return (repulse_direction, side_pressure, forward_pressure)
 
 
-def ant_controller(sensors, k_goal=2.0, k_avoid=5.5, base_speed=10, avoid_thresh=1) -> Command:
+def ant_controller(
+    sensors,
+    goal_ang: float | None,
+    dist_to_goal: float | None,
+    goal_visible: bool,
+    k_goal: float = 2.0,
+    k_avoid: float = 5.5,
+    base_speed: float = 10.0,
+    avoid_thresh: float = 1.0,
+) -> Command:
     cmd = Command()
     scan: LaserScan = sensors.scan
     if scan is None or not scan.ranges:
         return cmd  # do nothing until we have LIDAR
 
-    # Step 1 determine Goal position.
-    goal_ang, dist_to_goal, visible = COMPUTE_GOAL_FROM_MARKERS(sensors)
+    # Step 1 Determine obstacle avoidance.
+    repulse, pressure, forward_pressure = Obstacle_Avoidance(scan, avoid_thresh)
 
-    # Step 2 Determine obstacle avoidance.
-    repulse, pressure = Obstacle_Avoidance(scan, avoid_thresh)
-
-    # Step 3 Goal and Obstacle avoidance.
+    # Step 2 Goal and Obstacle avoidance.
     # Angular velocity.
     ang_vel = 0.0
-    if visible:
+    if goal_visible and goal_ang is not None:
         ang_vel += k_goal * goal_ang * 0.3
     if pressure > 0:
         ang_vel += k_avoid * repulse * 0.3
@@ -67,7 +82,7 @@ def ant_controller(sensors, k_goal=2.0, k_avoid=5.5, base_speed=10, avoid_thresh
 
     searching = False
 
-    if not visible and pressure == 0.0:
+    if not goal_visible and pressure == 0.0:
         ang_vel = search_ang_speed
         searching = True
 
@@ -90,12 +105,23 @@ def ant_controller(sensors, k_goal=2.0, k_avoid=5.5, base_speed=10, avoid_thresh
     else:
         lin_vel = base_speed * v_scale
 
+    # --- NEW: front-obstacle braking using forward_pressure ---
+    if forward_pressure > 25.0:
+        lin_vel = 0.0
+    elif forward_pressure > 8.0:
+        lin_vel *= 0.3
+
     # Stop if we’re basically on top of the goal
-    if visible and dist_to_goal is not None and dist_to_goal < 0.25:
+    if goal_visible and dist_to_goal is not None and dist_to_goal < 0.25:
         lin_vel = 0.0
 
     turn_in_place_thresh = 0.3  # radians.
-    if visible and dist_to_goal is not None and abs(goal_ang) > turn_in_place_thresh:
+    if (
+        goal_visible
+        and dist_to_goal is not None
+        and goal_ang is not None
+        and abs(goal_ang) > turn_in_place_thresh
+    ):
         lin_vel = 0.0
 
     cmd.linear_vel = lin_vel

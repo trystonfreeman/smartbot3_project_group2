@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from dataclasses import dataclass, field  # noqa: F401
+from typing import List, Optional, Tuple  # noqa: F401
 import math
 
 
@@ -8,79 +8,97 @@ class Goal:
     x: float
     y: float
     visited: bool = False
+    marker_id: int | None = None
 
 
-@dataclass
 class GoalManager:
-    home_x: float
-    home_y: float
-    goals: List[Goal] = field(default_factory=list)
-    current_goal_index: Optional[int] = None
+    def __init__(self, home_x: float, home_y: float, min_goal_spacing: float = 0.3):
+        self.home_x = home_x
+        self.home_y = home_y
+        self.min_goal_spacing = min_goal_spacing
+        self.goals: list[Goal] = []
+        self.current_goal_index: Optional[int] = None  # <-- the missing piece
 
-    min_goal_spacing: float = 0.10  # e.g. 10 cm
+    # ---------- utilities ----------
 
-    def _distance_sq(self, x1: float, y1: float, x2: float, y2: float) -> float:
-        return (x1 - x2) ** 2 + (y1 - y2) ** 2
+    def num_goals(self) -> int:
+        return len(self.goals)
 
     def has_goal_near(self, x: float, y: float, tol: float) -> bool:
         """Check if there is already a goal within tol meters of (x, y)."""
-        tol2 = tol * tol
-        return any(self._distance_sq(x, y, g.x, g.y) < tol2 for g in self.goals)
+        for g in self.goals:
+            dx = g.x - x
+            dy = g.y - y
+            if dx * dx + dy * dy < tol * tol:
+                return True
+        return False
 
-    def add_goal_world(self, x: float, y: float) -> None:
+    def has_goal_for_marker(self, marker_id: int) -> bool:
+        return any(g.marker_id == marker_id for g in self.goals)
+
+    def add_goal_world(self, x: float, y: float, marker_id: int | None = None) -> bool:
         """
-        Add a new goal in world coordinates, but avoid spamming nearly
-        identical goals.
+        Add a goal in world frame iff:
+        - we don't already have a goal for this marker_id (if provided)
+        - and it's not too close to an existing goal.
+        Returns True if added, False if skipped.
         """
-        if self.goals:
-            last = self.goals[-1]
-            if self._distance_sq(x, y, last.x, last.y) < self.min_goal_spacing**2:
-                # Too close to the last stored goal; ignore
-                return
+        if marker_id is not None and self.has_goal_for_marker(marker_id):
+            # print(f'Skipping marker {marker_id}: already stored')
+            return False
 
-        self.goals.append(Goal(x, y))
-        print(Goal(x, y))
+        if self.has_goal_near(x, y, self.min_goal_spacing):
+            # print(f'Skipping goal near ({x:.2f}, {y:.2f}) as duplicate')
+            return False
 
-    def add_goal_from_relative(
-        self,
-        robot_x: float,
-        robot_y: float,
-        robot_theta: float,
-        rel_x: float,
-        rel_y: float,
-    ) -> None:
-        # Convert a goal from robot frame (rel_x, rel_y) to world frame and store it
-        # R(theta) * [rel_x, rel_y] + [robot_x, robot_y]
-        gx = robot_x + rel_x * math.cos(robot_theta) - rel_y * math.sin(robot_theta)
-        gy = robot_y + rel_x * math.sin(robot_theta) + rel_y * math.cos(robot_theta)
-        self.add_goal_world(gx, gy)
+        self.goals.append(Goal(x=x, y=y, marker_id=marker_id))
+        return True
+
+    # ---------- current-goal handling ----------
+
+    def current_goal(self) -> Optional[Goal]:
+        """Return the currently selected goal, or None if none is selected."""
+        if self.current_goal_index is None:
+            return None
+        if not (0 <= self.current_goal_index < len(self.goals)):
+            return None
+        return self.goals[self.current_goal_index]
 
     def select_closest_unvisited(self, robot_x: float, robot_y: float) -> Optional[Goal]:
+        """
+        Pick the closest unvisited goal to (robot_x, robot_y).
+        Sets current_goal_index and returns that Goal, or None if no unvisited goals.
+        """
         best_idx = None
-        best_dist = float('inf')
+        best_d2 = None
 
         for i, g in enumerate(self.goals):
             if g.visited:
                 continue
-            d2 = self._distance_sq(robot_x, robot_y, g.x, g.y)
-            if d2 < best_dist:
-                best_dist = d2
+            dx = g.x - robot_x
+            dy = g.y - robot_y
+            d2 = dx * dx + dy * dy
+            if best_d2 is None or d2 < best_d2:
+                best_d2 = d2
                 best_idx = i
 
-        self.current_goal_index = best_idx
         if best_idx is None:
+            self.current_goal_index = None
             return None
+
+        self.current_goal_index = best_idx
         return self.goals[best_idx]
 
     def mark_current_goal_visited(self) -> None:
-        if self.current_goal_index is not None:
-            self.goals[self.current_goal_index].visited = True
-            self.current_goal_index = None
-
-    def current_goal(self) -> Optional[Goal]:
+        """Mark the current goal as visited and clear current_goal_index."""
         if self.current_goal_index is None:
-            return None
-        return self.goals[self.current_goal_index]
+            return
+        if 0 <= self.current_goal_index < len(self.goals):
+            self.goals[self.current_goal_index].visited = True
+        self.current_goal_index = None
+
+    def has_unvisited_goals(self) -> bool:
+        return any(not g.visited for g in self.goals)
 
 
 def world_to_robot(
